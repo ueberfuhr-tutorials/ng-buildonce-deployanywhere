@@ -1,4 +1,5 @@
-import { Component } from '@angular/core';
+import {Component, Inject} from '@angular/core';
+import {APP_CONFIG, AppConfig} from "../environments/app-config.model";
 
 @Component({
   selector: 'app-root',
@@ -6,5 +7,8 @@ import { Component } from '@angular/core';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title = 'ng-buildonce-deployanywhere';
+
+  constructor(@Inject(APP_CONFIG) public readonly config: AppConfig) {
+  }
+
 }

@@ -1,0 +1,4 @@
+{
+  "production": true,
+  "apiEndpoint": "http://<url-to-production>/api/v1"
+}
