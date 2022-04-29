@@ -185,4 +185,19 @@ export class AppComponent {
 ```
 
 ### Possible deviations
-t.b.d.
+
+The solution described is a sample, from which we can deviate in individual things.
+
+#### Generation of JSON Configuration
+
+The JSON that holds the environment-specific configuration doesn't necessarily have to be placed within the source code.
+If we do not need to run such configuration locally, it could also be possible to
+ - create the JSON during deployment (e.g. create and copy the file into the target container)
+ - configure environment variables in the target container and let the HTTP server provide them as JSON ([as described here in case of nginx](https://developers.redhat.com/blog/2021/03/04/making-environment-variables-accessible-in-front-end-containers#inject_the_environment_variables))
+
+#### Usage of ES instead of JSON
+
+Instead of JSON, we could also provide a script
+_(declaring the configuration as a constant or providing a method constructing the configuration)_
+that we also need to download on application bootstrap.
+This would be more flexible, but we'd have to run the script after download using `eval(...)`.
