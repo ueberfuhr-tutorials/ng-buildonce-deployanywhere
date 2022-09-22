@@ -47,7 +47,7 @@ We replace the `environment.ts` files by JSON configurations.
 
 ```json
 {
-  "production": false,
+  "stage": "local",
   "apiEndpoint": "http://localhost:8080/api/v1"
 }
 ```
@@ -100,7 +100,9 @@ In case of existing configurations, we must also remove the `fileReplacements` e
 
 **Please note** that working with configurations still allows stage-specific builds. The difference is that we alternatively can replace the stage-specific part by a simple file replacement.
 
-#### 3. Load the Configuration on Application Bootstrap
+#### 3. Load the Configuration
+
+##### 3.1. On Application Bootstrap
 
 In [➡`main.ts`](src/main.ts), we must load the JSON configuration by a separate HTTP call. In our example, we use the [Fetch API](https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API).
 
@@ -125,12 +127,12 @@ fetch('app-config.json', {cache: 'reload'}) // no caching!
     console.error(error);
     // use default values in case of error
     return {
-      production: true,
+      stage: 'prod',
       apiEndpoint: './api/v1'
     };
   })
   .then(config => {
-    if (config.production) {
+    if (config.stage === 'prod') {
       enableProdMode();
     }
     return platformBrowserDynamic().bootstrapModule(AppModule);
@@ -138,18 +140,19 @@ fetch('app-config.json', {cache: 'reload'}) // no caching!
   .catch(err => console.error(err));
 ```
 
-#### 4. Code Improvements
+But so should be aware that, if loading fails, the whole application won't start.
+
+##### 3.2. Code Improvements
 
 Optionally, to make the configuration type safe and injectable, we declare an [➡interface and injection token(s)](src/environments/app-config.model.ts) and use them in `main.ts`.
 
 ```typescript
 export interface AppConfig {
-  production: boolean;
+  stage: 'local' | 'dev' | 'prod';
   apiEndpoint: string;
 }
 
 export const APP_CONFIG = new InjectionToken<AppConfig>('app.config');
-export const API_ENDPOINT = new InjectionToken<string>('api.endpoint');
 ```
 
 ```typescript
@@ -164,13 +167,76 @@ fetch('app-config.json', {cache: 'reload'}) // no caching!
   .then(config => {
     // ...
     return platformBrowserDynamic([
-      {provide: APP_CONFIG, useValue: config},
-      {provide: API_ENDPOINT, useValue: config.apiEndpoint}
+      {provide: APP_CONFIG, useValue: config}
     ]).bootstrapModule(AppModule);
   })
 ```
 
-#### 5. Use the Configration
+##### 3.3. Use AppInitializer and Service
+
+We can put the loading magic into an Angular Service and use the `HttpClient`:
+
+```typescript
+@Injectable({
+  providedIn: 'root'
+})
+export class ConfigService {
+
+  private env: AppConfig = {
+    apiEndpoint: 'http://localhost',
+    stage: 'local'
+  };
+
+  constructor(private http: HttpClient) {
+  }
+
+  get config(): AppConfig {
+    return this.env;
+  }
+
+  loadConfig(): Observable<AppConfig> {
+    return this.http.get<AppConfig>(APP_CONFIG_ENDPOINT)
+      .pipe(
+        tap(env => this.env = env)
+      );
+  }
+
+}
+```
+
+Then, we define a module that uses the service as an application initializer
+and provides the configuration for Dependency Injection:
+
+```typescript
+function loadConfig(config: ConfigService): () => Observable<AppConfig> {
+  return () => config.loadConfig();
+}
+
+@NgModule({
+  imports: [
+    HttpClientModule
+  ],
+  providers: [
+    {
+      provide: APP_INITIALIZER,
+      useFactory: loadConfig,
+      deps: [ConfigService],
+      multi: true
+    },
+    {
+      provide: APP_CONFIG,
+      useFactory: (configService: ConfigService) => configService.config,
+      deps: [ConfigService],
+    }
+  ]
+})
+export class ConfigModule {
+}
+```
+
+We only need to import this module into the `AppModule`.
+
+#### 4. Use the Configration
 
 We can then inject the configuration in our Angular components, services, ...
 
