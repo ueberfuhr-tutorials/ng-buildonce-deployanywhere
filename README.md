@@ -195,7 +195,7 @@ export class ConfigService {
   }
 
   loadConfig(): Observable<AppConfig> {
-    return this.http.get<AppConfig>(APP_CONFIG_ENDPOINT)
+    return this.http.get<AppConfig>('app-config.json')
       .pipe(
         tap(env => this.env = env)
       );
@@ -209,7 +209,14 @@ and provides the configuration for Dependency Injection:
 
 ```typescript
 function loadConfig(config: ConfigService): () => Observable<AppConfig> {
-  return () => config.loadConfig();
+  return () => config.loadConfig().pipe(
+    // we could enable the prod mode here
+    tap(config => {
+        if(config.stage === 'prod') {
+            enabledProdMode();
+        }
+    })
+  );
 }
 
 @NgModule({
